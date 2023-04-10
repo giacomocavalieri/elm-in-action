@@ -3,3 +3,6 @@
 
 # Elm compiler files
 elm-stuff/
+
+# Elm compiler output
+app.js
