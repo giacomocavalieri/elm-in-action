@@ -1,7 +1,6 @@
-port module PhotoGroove exposing (Model, Msg(..), Photo, Status(..), init, main, photoDecoder, update, urlPrefix, view)
+port module PhotoGallery exposing (Model, Msg(..), Photo, Status(..), init, photoDecoder, subscriptions, update, urlPrefix, view)
 
-import Browser
-import Html exposing (Attribute, Html, button, canvas, div, h1, h3, img, input, label, node, text)
+import Html exposing (Attribute, Html, button, canvas, div, h3, img, input, label, node, text)
 import Html.Attributes as Attr exposing (checked, class, classList, id, name, property, src, title, type_)
 import Html.Events exposing (on, onClick)
 import Http
@@ -9,16 +8,6 @@ import Json.Decode as Decode exposing (Decoder, at, int, list, string, succeed)
 import Json.Decode.Pipeline exposing (optional, required)
 import Json.Encode as Encode
 import Random
-
-
-main : Program Float Model Msg
-main =
-    Browser.element
-        { init = init
-        , update = update
-        , view = view
-        , subscriptions = subscriptions
-        }
 
 
 
@@ -257,8 +246,7 @@ sizeToString thumbnailSize =
 
 viewLoaded : List Photo -> Photo -> Model -> List (Html Msg)
 viewLoaded photos selectedPhoto model =
-    [ h1 [] [ text "Photo Groove" ]
-    , button
+    [ button
         [ onClick ClickedSurpriseMe ]
         [ text "Surprise Me!" ]
     , div [ class "filters" ]

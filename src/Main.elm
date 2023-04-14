@@ -1,12 +1,30 @@
 module Main exposing (..)
 
-import Browser exposing (Document, UrlRequest)
+import Browser exposing (Document)
 import Browser.Navigation as Nav
 import Html exposing (Html, a, footer, h1, li, nav, text, ul)
 import Html.Attributes exposing (classList, href)
 import Html.Lazy exposing (lazy)
+import PhotoFolders as Folders
+import PhotoGallery as Gallery
 import Url exposing (Url)
-import Url.Parser as Parser exposing ((</>), Parser, s, string)
+import Url.Parser as Parser exposing ((</>), Parser, s)
+
+
+
+-- MAIN
+
+
+main : Program Float Model Msg
+main =
+    Browser.application
+        { init = init
+        , onUrlRequest = ClickedLink
+        , onUrlChange = ChangedUrl
+        , subscriptions = subscriptions
+        , update = update
+        , view = view
+        }
 
 
 
@@ -16,28 +34,44 @@ import Url.Parser as Parser exposing ((</>), Parser, s, string)
 type alias Model =
     { page : Page
     , key : Nav.Key
+    , version : Float
     }
 
 
 type Page
-    = SelectedPhoto String
-    | Gallery
-    | Folders
+    = FoldersPage Folders.Model
+    | GalleryPage Gallery.Model
     | NotFound
 
 
-init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url key =
-    ( { page = urlToPage url, key = key }, Cmd.none )
+type Route
+    = Gallery
+    | Folders
+    | SelectedPhoto String
 
 
-urlToPage : Url -> Page
-urlToPage url =
-    Parser.parse parser url
-        |> Maybe.withDefault NotFound
+init : Float -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init version url key =
+    updateUrl url { page = NotFound, key = key, version = version }
 
 
-parser : Parser (Page -> a) a
+updateUrl : Url -> Model -> ( Model, Cmd Msg )
+updateUrl url model =
+    case Parser.parse parser url of
+        Just Gallery ->
+            Gallery.init model.version |> toGallery model
+
+        Just Folders ->
+            Folders.init Nothing |> toFolders model
+
+        Just (SelectedPhoto filename) ->
+            Folders.init (Just filename) |> toFolders model
+
+        Nothing ->
+            ( { model | page = NotFound }, Cmd.none )
+
+
+parser : Parser (Route -> a) a
 parser =
     Parser.oneOf
         [ Parser.map SelectedPhoto (s "photos" </> Parser.string)
@@ -53,6 +87,8 @@ parser =
 type Msg
     = ClickedLink Browser.UrlRequest
     | ChangedUrl Url
+    | GotFolderMsg Folders.Msg
+    | GotGalleryMsg Gallery.Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -67,7 +103,37 @@ update message model =
                     ( model, Nav.pushUrl model.key (Url.toString url) )
 
         ChangedUrl url ->
-            ( { model | page = urlToPage url }, Cmd.none )
+            updateUrl url model
+
+        GotFolderMsg folderMessage ->
+            case model.page of
+                FoldersPage folders ->
+                    toFolders model (Folders.update folderMessage folders)
+
+                _ ->
+                    ( model, Cmd.none )
+
+        GotGalleryMsg galleryMessage ->
+            case model.page of
+                GalleryPage gallery ->
+                    toGallery model (Gallery.update galleryMessage gallery)
+
+                _ ->
+                    ( model, Cmd.none )
+
+
+toFolders : Model -> ( Folders.Model, Cmd Folders.Msg ) -> ( Model, Cmd Msg )
+toFolders model ( folders, cmd ) =
+    ( { model | page = FoldersPage folders }
+    , Cmd.map GotFolderMsg cmd
+    )
+
+
+toGallery : Model -> ( Gallery.Model, Cmd Gallery.Msg ) -> ( Model, Cmd Msg )
+toGallery model ( gallery, cmd ) =
+    ( { model | page = GalleryPage gallery }
+    , Cmd.map GotGalleryMsg cmd
+    )
 
 
 
@@ -75,8 +141,14 @@ update message model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
+subscriptions model =
+    case model.page of
+        GalleryPage gallery ->
+            Gallery.subscriptions gallery
+                |> Sub.map GotGalleryMsg
+
+        _ ->
+            Sub.none
 
 
 
@@ -87,7 +159,17 @@ view : Model -> Document Msg
 view model =
     let
         content =
-            text "This isn't even my final form!"
+            case model.page of
+                FoldersPage folders ->
+                    Folders.view folders
+                        |> Html.map GotFolderMsg
+
+                GalleryPage gallery ->
+                    Gallery.view gallery
+                        |> Html.map GotGalleryMsg
+
+                NotFound ->
+                    text "Not found"
     in
     { title = "Photo Groove, SPA Style"
     , body =
@@ -118,19 +200,16 @@ viewHeader currentPage =
     nav [] [ logo, links ]
 
 
-isActive : { link : Page, currentPage : Page } -> Bool
+isActive : { link : Route, currentPage : Page } -> Bool
 isActive { link, currentPage } =
     case ( link, currentPage ) of
-        ( Gallery, Gallery ) ->
+        ( Gallery, GalleryPage _ ) ->
             True
 
         ( Gallery, _ ) ->
             False
 
-        ( Folders, Folders ) ->
-            True
-
-        ( Folders, SelectedPhoto _ ) ->
+        ( Folders, FoldersPage _ ) ->
             True
 
         ( Folders, _ ) ->
@@ -139,26 +218,7 @@ isActive { link, currentPage } =
         ( SelectedPhoto _, _ ) ->
             False
 
-        ( NotFound, _ ) ->
-            False
-
 
 viewFooter : Html msg
 viewFooter =
     footer [] [ text "One is never alone with a rubber duck. -Douglas Adams" ]
-
-
-
--- MAIN
-
-
-main : Program () Model Msg
-main =
-    Browser.application
-        { init = init
-        , onUrlRequest = ClickedLink
-        , onUrlChange = ChangedUrl
-        , subscriptions = subscriptions
-        , update = update
-        , view = view
-        }

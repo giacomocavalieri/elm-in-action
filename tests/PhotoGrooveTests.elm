@@ -5,7 +5,7 @@ import Fuzz exposing (Fuzzer, int, string)
 import Html.Attributes as Attr
 import Json.Decode exposing (decodeValue)
 import Json.Encode as Encode
-import PhotoGroove exposing (Model, Msg(..), Photo, Status(..), urlPrefix)
+import PhotoGallery exposing (Model, Msg(..), Photo, Status(..), urlPrefix)
 import Test exposing (..)
 import Test.Html.Event as Event
 import Test.Html.Query as Query
@@ -20,14 +20,14 @@ photoDecoderTest =
             , ( "size", Encode.int size )
             ]
                 |> Encode.object
-                |> decodeValue PhotoGroove.photoDecoder
+                |> decodeValue PhotoGallery.photoDecoder
                 |> Result.map .title
                 |> Expect.equal (Ok "(untitled)")
 
 
 initialModel : Model
 initialModel =
-    Tuple.first (PhotoGroove.init 0)
+    Tuple.first (PhotoGallery.init 0)
 
 
 testSliders : Test
@@ -44,7 +44,7 @@ testSlider description toMsg amountFromModel =
     fuzz int description <|
         \amount ->
             initialModel
-                |> PhotoGroove.update (toMsg amount)
+                |> PhotoGallery.update (toMsg amount)
                 |> Tuple.first
                 |> amountFromModel
                 |> Expect.equal amount
@@ -55,7 +55,7 @@ noPhotosNoThumbnails =
     test "No thumbnails render when there are no photos to render" <|
         \_ ->
             initialModel
-                |> PhotoGroove.view
+                |> PhotoGallery.view
                 |> Query.fromHtml
                 |> Query.findAll [ tag "img" ]
                 |> Query.count (Expect.equal 0)
@@ -77,7 +77,7 @@ withRandomPhotos description check =
                     before ++ selected :: after
             in
             { initialModel | status = Loaded allPhotos selected }
-                |> PhotoGroove.view
+                |> PhotoGallery.view
                 |> Query.fromHtml
                 |> check before selected after
 

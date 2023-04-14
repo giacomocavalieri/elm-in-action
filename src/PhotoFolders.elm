@@ -1,27 +1,12 @@
-module PhotoFolders exposing (..)
+module PhotoFolders exposing (Model, Msg, init, update, view)
 
-import Browser
 import Dict exposing (Dict)
-import Html exposing (Html, div, h1, h2, h3, img, label, span, text)
-import Html.Attributes exposing (class, src)
+import Html exposing (Html, a, div, h2, h3, img, label, span, text)
+import Html.Attributes exposing (class, href, src)
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode as Decode exposing (Decoder, int, list, string)
 import Json.Decode.Pipeline exposing (required)
-
-
-
--- MAIN
-
-
-main : Program () Model Msg
-main =
-    Browser.element
-        { init = init
-        , update = update
-        , view = view
-        , subscriptions = \_ -> Sub.none
-        }
 
 
 
@@ -71,9 +56,9 @@ initialModel =
     }
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( initialModel
+init : Maybe String -> ( Model, Cmd Msg )
+init selectedFileName =
+    ( { initialModel | selectedPhotoUrl = selectedFileName }
     , Http.get
         { url = "http://elm-in-action.com/folders/list"
         , expect = Http.expectJson GotInitialModel modelDecoder
@@ -175,7 +160,7 @@ update message model =
             ( { model | selectedPhotoUrl = Just url }, Cmd.none )
 
         GotInitialModel (Ok newModel) ->
-            ( newModel, Cmd.none )
+            ( { newModel | selectedPhotoUrl = model.selectedPhotoUrl }, Cmd.none )
 
         GotInitialModel (Err _) ->
             ( model, Cmd.none )
@@ -220,16 +205,18 @@ view model =
     in
     div [ class "content" ]
         [ div [ class "folders" ]
-            [ h1 [] [ text "Folders" ]
-            , viewFolder End model.root
-            ]
+            [ viewFolder End model.root ]
         , div [ class "selected-photo" ] [ selectedPhoto ]
         ]
 
 
 viewPhoto : String -> Html Msg
 viewPhoto url =
-    div [ class "photo", onClick (ClickedPhoto url) ]
+    a
+        [ href ("/photos/" ++ url)
+        , class "photo"
+        , onClick (ClickedPhoto url)
+        ]
         [ text url ]
 
 
